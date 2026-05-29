@@ -1,0 +1,585 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Posyandu Pintar API",
+    "version": "1.0.0",
+    "description": "Dokumentasi API untuk autentikasi, warga, kader, jadwal posyandu, penimbangan, imunisasi, dan verifikasi."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8000/api",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Autentikasi dan profil user" },
+    { "name": "Warga", "description": "Data warga dan verifikasi pendaftaran" },
+    { "name": "Kader", "description": "Data kader" },
+    { "name": "Jadwal Posyandu", "description": "Master jadwal posyandu" },
+    { "name": "Penimbangan", "description": "Data penimbangan" },
+    { "name": "Imunisasi", "description": "Data imunisasi" },
+    { "name": "Public", "description": "Endpoint publik dengan API key" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "ErrorValidation": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "ErrorMessage": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Pesan error" }
+        }
+      },
+      "AuthRegisterRequest": {
+        "type": "object",
+        "required": ["name", "email", "password", "password_confirmation"],
+        "properties": {
+          "name": { "type": "string", "example": "Budi Santoso" },
+          "email": { "type": "string", "format": "email", "example": "budi@example.com" },
+          "password": { "type": "string", "format": "password", "example": "secret123" },
+          "password_confirmation": { "type": "string", "format": "password", "example": "secret123" }
+        }
+      },
+      "AuthLoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "budi@example.com" },
+          "password": { "type": "string", "format": "password", "example": "secret123" }
+        }
+      },
+      "PublicWargaRequest": {
+        "type": "object",
+        "required": ["nama_lengkap", "nik", "tanggal_lahir", "jenis_kelamin", "kategori", "no_hp", "alamat", "rt_rw"],
+        "properties": {
+          "nama_lengkap": { "type": "string", "example": "Siti Aisyah" },
+          "nik": { "type": "string", "example": "3201012345678901" },
+          "tempat_lahir": { "type": "string", "example": "Bandung" },
+          "tanggal_lahir": { "type": "string", "format": "date", "example": "2020-05-01" },
+          "jenis_kelamin": { "type": "string", "enum": ["L", "P"], "example": "P" },
+          "kategori": { "type": "string", "enum": ["balita", "ibu_hamil", "lansia"], "example": "balita" },
+          "nama_orang_tua": { "type": "string", "nullable": true, "example": "Ahmad" },
+          "no_hp": { "type": "string", "example": "081234567890" },
+          "no_hp_wali": { "type": "string", "nullable": true, "example": "081234567899" },
+          "alamat": { "type": "string", "example": "Jl. Melati No. 10" },
+          "rt_rw": { "type": "string", "example": "01/03" }
+        }
+      },
+      "Warga": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "nama_lengkap": { "type": "string", "example": "Siti Aisyah" },
+          "nik": { "type": "string", "example": "3201012345678901" },
+          "tanggal_lahir": { "type": "string", "format": "date", "example": "2020-05-01" },
+          "jenis_kelamin": { "type": "string", "example": "P" },
+          "kategori": { "type": "string", "example": "balita" },
+          "nama_orang_tua": { "type": "string", "nullable": true },
+          "no_hp": { "type": "string", "nullable": true },
+          "no_hp_wali": { "type": "string", "nullable": true },
+          "alamat": { "type": "string" },
+          "rt_rw": { "type": "string" },
+          "status_verifikasi": { "type": "string", "example": "pending" },
+          "verified_by": { "type": "integer", "nullable": true },
+          "verified_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "JadwalPosyandu": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "tanggal_pelaksanaan": { "type": "string", "format": "date", "example": "2026-05-20" },
+          "waktu_mulai": { "type": "string", "example": "08:00" },
+          "waktu_selesai": { "type": "string", "example": "12:00" },
+          "kategori_posyandu": { "type": "string", "example": "balita" },
+          "lokasi": { "type": "string", "example": "Balai Desa Mekar Jaya" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "JadwalAssignment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "jadwal_posyandu_id": { "type": "integer", "example": 2 },
+          "warga_id": { "type": "integer", "example": 6 },
+          "status": { "type": "string", "example": "assigned" },
+          "notes": { "type": "string", "nullable": true, "example": null },
+          "jadwalPosyandu": { "$ref": "#/components/schemas/JadwalPosyandu" }
+        }
+      },
+      "Kader": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "user_id": { "type": "integer", "example": 2 },
+          "nama_lengkap": { "type": "string", "example": "Kader Sari" },
+          "no_hp": { "type": "string", "example": "081234567890" },
+          "alamat": { "type": "string", "example": "Jl. Melati No. 8" },
+          "wilayah": { "type": "string", "example": "RW 03" }
+        }
+      },
+      "KaderRequest": {
+        "type": "object",
+        "required": ["user_id", "nama_lengkap", "no_hp", "alamat", "wilayah"],
+        "properties": {
+          "user_id": { "type": "integer", "example": 2 },
+          "nama_lengkap": { "type": "string", "example": "Kader Sari" },
+          "no_hp": { "type": "string", "example": "081234567890" },
+          "alamat": { "type": "string", "example": "Jl. Melati No. 8" },
+          "wilayah": { "type": "string", "example": "RW 03" }
+        }
+      },
+      "PenimbanganRequest": {
+        "type": "object",
+        "required": ["warga_id", "kader_id", "tanggal", "berat_badan", "tinggi_badan"],
+        "properties": {
+          "warga_id": { "type": "integer", "example": 6 },
+          "kader_id": { "type": "integer", "example": 2 },
+          "tanggal": { "type": "string", "format": "date", "example": "2026-05-29" },
+          "berat_badan": { "type": "number", "example": 12.5 },
+          "tinggi_badan": { "type": "number", "example": 88.2 },
+          "lingkar_kepala": { "type": "number", "nullable": true, "example": 45.0 },
+          "tekanan_darah": { "type": "string", "nullable": true, "example": "120/80" },
+          "lingkar_lengan_atas": { "type": "number", "nullable": true, "example": 18.2 },
+          "lingkar_perut": { "type": "number", "nullable": true, "example": 72.0 },
+          "kolesterol": { "type": "number", "nullable": true, "example": 180 },
+          "asam_urat": { "type": "number", "nullable": true, "example": 5.4 },
+          "status_gizi": { "type": "string", "nullable": true, "example": "baik" },
+          "catatan": { "type": "string", "nullable": true, "example": "Normal" }
+        }
+      },
+      "ImunisasiRequest": {
+        "type": "object",
+        "required": ["warga_id", "kader_id", "jenis_imunisasi", "tanggal_pemberian"],
+        "properties": {
+          "warga_id": { "type": "integer", "example": 6 },
+          "kader_id": { "type": "integer", "example": 2 },
+          "jenis_imunisasi": { "type": "string", "example": "BCG" },
+          "tanggal_pemberian": { "type": "string", "format": "date", "example": "2026-05-29" },
+          "tanggal_berikutnya": { "type": ["string", "null"], "format": "date", "example": "2026-06-29" },
+          "keterangan": { "type": "string", "nullable": true, "example": "Dosis 1" }
+        }
+      },
+      "Penimbangan": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "tanggal": { "type": "string", "format": "date", "example": "2026-05-29" },
+          "warga": { "type": "string", "example": "Siti Aisyah" },
+          "kategori": { "type": "string", "example": "balita" },
+          "berat_badan": { "type": "string", "example": "12 kg" },
+          "tinggi_badan": { "type": "string", "example": "89 cm" },
+          "lingkar_kepala": { "type": ["string", "null"], "example": "45 cm" },
+          "status_gizi": { "type": ["string", "null"], "example": "baik" },
+          "catatan": { "type": ["string", "null"], "example": null },
+          "kader": { "type": "string", "example": "Kader 1" }
+        }
+      },
+      "Imunisasi": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "warga": { "type": "string", "example": "Siti Aisyah" },
+          "kader": { "type": "string", "example": "Kader 1" },
+          "jenis_imunisasi": { "type": "string", "example": "BCG" },
+          "tanggal_pemberian": { "type": "string", "format": "date", "example": "2026-05-29" },
+          "tanggal_berikutnya": { "type": ["string", "null"], "format": "date", "example": null },
+          "keterangan": { "type": ["string", "null"], "example": null }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register user baru",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthRegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registrasi berhasil" },
+          "422": { "description": "Validasi gagal", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorValidation" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthLoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login berhasil" },
+          "401": { "description": "Email atau password salah", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Logout user",
+        "responses": { "200": { "description": "Logout berhasil" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Ambil data user aktif",
+        "responses": { "200": { "description": "Data user aktif" } }
+      }
+    },
+    "/auth/generate-api-key": {
+      "post": {
+        "tags": ["Auth"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Generate API key",
+        "responses": { "201": { "description": "API key berhasil dibuat" } }
+      }
+    },
+    "/kaders/account": {
+      "post": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Buat akun kader",
+        "responses": { "201": { "description": "Akun kader berhasil dibuat" } }
+      }
+    },
+    "/kaders": {
+      "get": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Daftar kader",
+        "responses": { "200": { "description": "Data kader berhasil diambil" } }
+      },
+      "post": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah kader",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/KaderRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Kader berhasil ditambahkan" } }
+      }
+    },
+    "/kaders/{id}": {
+      "get": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Detail kader",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data kader berhasil diambil" } }
+      },
+      "put": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update kader",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Kader berhasil diperbarui" } }
+      },
+      "delete": {
+        "tags": ["Kader"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Hapus kader",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Kader berhasil dihapus" } }
+      }
+    },
+    "/wargas": {
+      "get": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Daftar warga",
+        "responses": { "200": { "description": "Data warga berhasil diambil" } }
+      },
+      "post": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah warga",
+        "responses": { "201": { "description": "Warga berhasil ditambahkan" } }
+      }
+    },
+    "/wargas/bulk": {
+      "post": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah warga secara bulk",
+        "responses": { "200": { "description": "Warga bulk berhasil diproses" } }
+      }
+    },
+    "/wargas/{id}": {
+      "get": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Detail warga",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Detail warga" } }
+      },
+      "put": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update warga",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Warga berhasil diupdate" } }
+      },
+      "delete": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Hapus warga",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Warga berhasil dihapus" } }
+      }
+    },
+    "/wargas/{warga}/approve": {
+      "post": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Setujui pendaftaran warga",
+        "parameters": [{ "name": "warga", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data warga berhasil disetujui" } }
+      }
+    },
+    "/wargas/{warga}/assign-jadwal": {
+      "post": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tetapkan jadwal posyandu untuk warga",
+        "parameters": [{ "name": "warga", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Jadwal berhasil ditetapkan untuk warga" } }
+      }
+    },
+    "/wargas/{warga}/reject": {
+      "post": {
+        "tags": ["Warga"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tolak pendaftaran warga",
+        "parameters": [{ "name": "warga", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data warga ditolak" } }
+      }
+    },
+    "/jadwal-posyandus": {
+      "get": {
+        "tags": ["Jadwal Posyandu"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Daftar jadwal posyandu",
+        "responses": { "200": { "description": "Data jadwal posyandu berhasil diambil" } }
+      },
+      "post": {
+        "tags": ["Jadwal Posyandu"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah jadwal posyandu",
+        "responses": { "201": { "description": "Jadwal posyandu berhasil ditambahkan" } }
+      }
+    },
+    "/jadwal-posyandus/{id}": {
+      "get": {
+        "tags": ["Jadwal Posyandu"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Detail jadwal posyandu",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data jadwal posyandu berhasil diambil" } }
+      },
+      "put": {
+        "tags": ["Jadwal Posyandu"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update jadwal posyandu",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Jadwal posyandu berhasil diperbarui" } }
+      },
+      "delete": {
+        "tags": ["Jadwal Posyandu"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Hapus jadwal posyandu",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Jadwal posyandu berhasil dihapus" } }
+      }
+    },
+    "/penimbangans": {
+      "get": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Daftar penimbangan",
+        "responses": { "200": { "description": "Data penimbangan berhasil diambil" } }
+      },
+      "post": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah penimbangan",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PenimbanganRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Data penimbangan berhasil disimpan" } }
+      }
+    },
+    "/penimbangans/bulk": {
+      "post": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah penimbangan secara bulk",
+        "responses": { "200": { "description": "Penimbangan bulk berhasil diproses" } }
+      }
+    },
+    "/penimbangans/{id}": {
+      "get": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Detail penimbangan",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data penimbangan berhasil diambil" } }
+      },
+      "put": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update penimbangan",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data diupdate" } }
+      },
+      "delete": {
+        "tags": ["Penimbangan"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Hapus penimbangan",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data dihapus" } }
+      }
+    },
+    "/imunisasis": {
+      "get": {
+        "tags": ["Imunisasi"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Daftar imunisasi",
+        "responses": { "200": { "description": "Data imunisasi berhasil diambil" } }
+      },
+      "post": {
+        "tags": ["Imunisasi"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Tambah imunisasi",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ImunisasiRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Data imunisasi berhasil disimpan" } }
+      }
+    },
+    "/imunisasis/{id}": {
+      "get": {
+        "tags": ["Imunisasi"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Detail imunisasi",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data imunisasi berhasil diambil" } }
+      },
+      "put": {
+        "tags": ["Imunisasi"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update imunisasi",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data diupdate" } }
+      },
+      "delete": {
+        "tags": ["Imunisasi"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Hapus imunisasi",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Data dihapus" } }
+      }
+    },
+    "/public/wargas": {
+      "get": {
+        "tags": ["Public"],
+        "security": [{ "apiKeyAuth": [] }],
+        "summary": "Daftar warga publik",
+        "responses": { "200": { "description": "Data warga berhasil diambil" } }
+      }
+    },
+    "/public/penimbangans": {
+      "get": {
+        "tags": ["Public"],
+        "security": [{ "apiKeyAuth": [] }],
+        "summary": "Daftar penimbangan publik",
+        "responses": { "200": { "description": "Data penimbangan berhasil diambil" } }
+      }
+    },
+    "/public/pendaftaran-warga": {
+      "post": {
+        "tags": ["Public"],
+        "summary": "Daftar warga mandiri",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PublicWargaRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Pendaftaran berhasil dikirim" },
+          "422": { "description": "Validasi gagal", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorValidation" } } } }
+        }
+      }
+    },
+    "/public/pendaftaran-warga/status": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Cek status pendaftaran",
+        "parameters": [{ "name": "query", "in": "query", "required": true, "schema": { "type": "string" }, "description": "NIK atau nomor WhatsApp" }],
+        "responses": {
+          "200": { "description": "Data pendaftaran ditemukan" },
+          "404": { "description": "Data pendaftaran tidak ditemukan", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } },
+          "422": { "description": "Query kosong", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+        }
+      }
+    }
+  }
+}
